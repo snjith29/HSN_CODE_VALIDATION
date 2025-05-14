@@ -1,0 +1,58 @@
+/* HSN Validator CSS */
+
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.card-header {
+    border-bottom: none;
+}
+
+.result-header {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+.validation-details {
+    list-style-type: none;
+}
+
+.validation-details li {
+    margin-bottom: 5px;
+}
+
+.badge {
+    font-size: 0.9em;
+    padding: 8px 12px;
+}
+
+.summary-alert {
+    border-radius: 10px;
+}
+
+/* Styling for tab links */
+.nav-tabs .nav-link {
+    color: #495057;
+    border-radius: 8px 8px 0 0;
+}
+
+.nav-tabs .nav-link.active {
+    font-weight: bold;
+    color: #0d6efd;
+    border-bottom: 2px solid #0d6efd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-body .row {
+        flex-direction: column;
+    }
+    
+    .card-body .col-md-6:last-child {
+        margin-top: 1rem;
+    }
+}

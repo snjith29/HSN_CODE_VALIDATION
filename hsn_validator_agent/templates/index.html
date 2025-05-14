@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSN Code Validator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="mb-0 text-center">HSN Code Validator</h2>
+                        <p class="mb-0 text-center">Validate Harmonized System Nomenclature codes against the master database</p>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="validationTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab" aria-controls="single" aria-selected="true">
+                                    Single Code
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="batch-tab" data-bs-toggle="tab" data-bs-target="#batch" type="button" role="tab" aria-controls="batch" aria-selected="false">
+                                    Batch Validation
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content mt-3" id="validationTabsContent">
+                            <!-- Single Code Validation -->
+                            <div class="tab-pane fade show active" id="single" role="tabpanel" aria-labelledby="single-tab">
+                                <form id="singleValidationForm">
+                                    <div class="mb-3">
+                                        <label for="singleCode" class="form-label">HSN Code</label>
+                                        <input type="text" class="form-control" id="singleCode" placeholder="Enter HSN code (e.g., 85171290)">
+                                        <div class="form-text">Enter a valid HSN code (typically 2, 4, 6, or 8 digits)</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Validate</button>
+                                </form>
+                                
+                                <div id="singleResult" class="mt-4"></div>
+                            </div>
+                            
+                            <!-- Batch Validation -->
+                            <div class="tab-pane fade" id="batch" role="tabpanel" aria-labelledby="batch-tab">
+                                <form id="batchValidationForm">
+                                    <div class="mb-3">
+                                        <label for="batchCodes" class="form-label">HSN Codes</label>
+                                        <textarea class="form-control" id="batchCodes" rows="5" placeholder="Enter HSN codes separated by commas (e.g., 85171290, 3004, 87032100)"></textarea>
+                                        <div class="form-text">Enter multiple HSN codes separated by commas</div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Validate All</button>
+                                </form>
+                                
+                                <div id="batchResult" class="mt-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button id="reloadDataBtn" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-clockwise"></i> Reload HSN Data
+                            </button>
+                            <span class="text-muted small">Powered by Google's Agent Development Kit (ADK)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Template for Single Validation -->
+    <template id="singleResultTemplate">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center result-header">
+                <span class="fw-bold">HSN Code: <span class="hsn-code"></span></span>
+                <span class="badge result-badge"></span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-2"><strong>Description:</strong> <span class="hsn-description"></span></p>
+                        <p class="mb-0"><strong>Validation Details:</strong></p>
+                        <ul class="validation-details mb-0 ps-3 mt-1">
+                            <li>Format Valid: <span class="format-valid"></span></li>
+                            <li>Exists in Database: <span class="exists-db"></span></li>
+                            <li>Hierarchy Valid: <span class="hierarchy-valid"></span></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6 validation-message"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Results Template for Batch Validation -->
+    <template id="batchResultTemplate">
+        <div class="batch-results">
+            <div class="alert summary-alert mb-3">
+                <h5 class="summary-title mb-1"></h5>
+                <div class="summary-details"></div>
+            </div>
+            <div class="results-list"></div>
+        </div>
+    </template>
+
+    <!-- Individual Result Item Template for Batch -->
+    <template id="batchResultItemTemplate">
+        <div class="card mb-2">
+            <div class="card-header d-flex justify-content-between align-items-center result-header py-2">
+                <span class="fw-bold">HSN Code: <span class="hsn-code"></span></span>
+                <span class="badge result-badge"></span>
+            </div>
+            <div class="card-body py-2">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1 small"><strong>Description:</strong> <span class="hsn-description"></span></p>
+                        <p class="mb-0 small"><strong>Validation:</strong> <span class="validation-brief"></span></p>
+                    </div>
+                    <div class="col-md-6 validation-message small"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Single code validation
+            document.getElementById('singleValidationForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const code = document.getElementById('singleCode').value.trim();
+                
+                if (!code) {
+                    showError('singleResult', 'Please enter an HSN code');
+                    return;
+                }
+                
+                validateCode(code);
+            });
+            
+            // Batch validation
+            document.getElementById('batchValidationForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const codesText = document.getElementById('batchCodes').value.trim();
+                
+                if (!codesText) {
+                    showError('batchResult', 'Please enter at least one HSN code');
+                    return;
+                }
+                
+                // Split by commas and clean up
+                const codes = codesText.split(',')
+                    .map(code => code.trim())
+                    .filter(code => code.length > 0);
+                
+                validateBatch(codes);
+            });
+            
+            // Reload HSN data
+            document.getElementById('reloadDataBtn').addEventListener('click', function() {
+                fetch('/reload_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error reloading HSN data');
+                });
+            });
+            
+            function validateCode(code) {
+                const resultContainer = document.getElementById('singleResult');
+                resultContainer.innerHTML = '<div class="text-center my-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Validating HSN code...</p></div>';
+                
+                fetch('/validate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: code })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        showError('singleResult', data.message);
+                        return;
+                    }
+                    
+                    // Display the result
+                    displaySingleResult(data.results[0]);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showError('singleResult', 'Error validating HSN code');
+                });
+            }
+            
+            function validateBatch(codes) {
+                const resultContainer = document.getElementById('batchResult');
+                resultContainer.innerHTML = '<div class="text-center my-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Validating HSN codes...</p></div>';
+                
+                fetch('/validate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ codes: codes })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'error') {
+                        showError('batchResult', data.message);
+                        return;
+                    }
+                    
+                    // Display the batch results
+                    displayBatchResults(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showError('batchResult', 'Error validating HSN codes');
+                });
+            }
+            
+            function displaySingleResult(result) {
+                const resultContainer = document.getElementById('singleResult');
+                
+                // Clone the template
+                const template = document.getElementById('singleResultTemplate');
+                const clone = template.content.cloneNode(true);
+                
+                // Set result values
+                clone.querySelector('.hsn-code').textContent = result.code;
+                
+                // Set badge
+                const badge = clone.querySelector('.result-badge');
+                if (result.valid) {
+                    badge.textContent = 'Valid';
+                    badge.classList.add('bg-success');
+                } else {
+                    badge.textContent = 'Invalid';
+                    badge.classList.add('bg-danger');
+                }
+                
+                // Set description
+                clone.querySelector('.hsn-description').textContent = result.description || 'Not available';
+                
+                // Set validation details
+                clone.querySelector('.format-valid').textContent = result.format_valid ? 'Yes' : 'No';
+                clone.querySelector('.exists-db').textContent = result.exists_in_database ? 'Yes' : 'No';
+                clone.querySelector('.hierarchy-valid').textContent = result.hierarchy_valid ? 'Yes' : 'No';
+                
+                // Set validation message
+                const messageElem = clone.querySelector('.validation-message');
+                if (!result.valid && result.error) {
+                    const errorAlert = document.createElement('div');
+                    errorAlert.className = 'alert alert-danger';
+                    errorAlert.textContent = result.error;
+                    messageElem.appendChild(errorAlert);
+                } else if (result.valid) {
+                    const successAlert = document.createElement('div');
+                    successAlert.className = 'alert alert-success';
+                    successAlert.textContent = 'This HSN code is valid and exists in the database.';
+                    messageElem.appendChild(successAlert);
+                }
+                
+                // Add to the DOM
+                resultContainer.innerHTML = '';
+                resultContainer.appendChild(clone);
+            }
+            
+            function displayBatchResults(data) {
+                const resultContainer = document.getElementById('batchResult');
+                
+                // Clone the batch template
+                const template = document.getElementById('batchResultTemplate');
+                const clone = template.content.cloneNode(true);
+                
+                // Set summary
+                const summary = data.summary;
+                const summaryAlert = clone.querySelector('.summary-alert');
+                const summaryTitle = clone.querySelector('.summary-title');
+                
+                if (summary.valid === summary.total) {
+                    summaryAlert.classList.add('alert-success');
+                    summaryTitle.textContent = 'All codes are valid!';
+                } else if (summary.valid === 0) {
+                    summaryAlert.classList.add('alert-danger');
+                    summaryTitle.textContent = 'All codes are invalid!';
+                } else {
+                    summaryAlert.classList.add('alert-warning');
+                    summaryTitle.textContent = 'Mixed validation results';
+                }
+                
+                const summaryDetails = clone.querySelector('.summary-details');
+                summaryDetails.textContent = `Total: ${summary.total}, Valid: ${summary.valid}, Invalid: ${summary.invalid}`;
+                
+                // Create result items
+                const resultsList = clone.querySelector('.results-list');
+                
+                // Sort results - valid codes first
+                const sortedResults = [...data.results].sort((a, b) => {
+                    if (a.valid && !b.valid) return -1;
+                    if (!a.valid && b.valid) return 1;
+                    return 0;
+                });
+                
+                sortedResults.forEach(result => {
+                    const itemTemplate = document.getElementById('batchResultItemTemplate');
+                    const item = itemTemplate.content.cloneNode(true);
+                    
+                    // Set result values
+                    item.querySelector('.hsn-code').textContent = result.code;
+                    
+                    // Set badge
+                    const badge = item.querySelector('.result-badge');
+                    if (result.valid) {
+                        badge.textContent = 'Valid';
+                        badge.classList.add('bg-success');
+                    } else {
+                        badge.textContent = 'Invalid';
+                        badge.classList.add('bg-danger');
+                    }
+                    
+                    // Set description and validation brief
+                    item.querySelector('.hsn-description').textContent = result.description || 'Not available';
+                    
+                    const validationBrief = item.querySelector('.validation-brief');
+                    if (result.valid) {
+                        validationBrief.textContent = 'All checks passed';
+                        validationBrief.classList.add('text-success');
+                    } else {
+                        let failedChecks = [];
+                        if (!result.format_valid) failedChecks.push('Format');
+                        if (!result.exists_in_database) failedChecks.push('Database lookup');
+                        if (!result.hierarchy_valid) failedChecks.push('Hierarchy');
+                        
+                        validationBrief.textContent = `Failed: ${failedChecks.join(', ')}`;
+                        validationBrief.classList.add('text-danger');
+                    }
+                    
+                    // Set error message
+                    const messageElem = item.querySelector('.validation-message');
+                    if (!result.valid && result.error) {
+                        messageElem.classList.add('text-danger');
+                        messageElem.textContent = result.error;
+                    }
+                    
+                    // Add to the list
+                    resultsList.appendChild(item);
+                });
+                
+                // Add to the DOM
+                resultContainer.innerHTML = '';
+                resultContainer.appendChild(clone);
+            }
+            
+            function showError(containerId, message) {
+                const container = document.getElementById(containerId);
+                container.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>
